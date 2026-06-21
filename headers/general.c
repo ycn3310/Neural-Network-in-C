@@ -1,6 +1,7 @@
 #include "define.h"
 #include "activation.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 double error(double calculated, double expected){
     return (expected - calculated)*(expected - calculated);
@@ -69,3 +70,16 @@ void update_weight(Layer *layer,double inputs[], double learning_rate){
     update_weight(&network.layers[1], network.layers[0].activation_array,learning_rate);
     update_weight(&network.layers[0], training_inputs[i],learning_rate);
 }*/
+
+void shuffle_array(int array[], int n){
+    for(int i=0; i<n; i++){
+        array[i]=i;
+    }
+    for(int i =n-1; i>0; i--){
+        int j = rand() % (i+1);
+
+        int temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
