@@ -11,8 +11,10 @@
 #include "headers/general.h"
 #include "headers/csv_reader.h"
 
+
+
 #define learning_rate 0.001
-#define EPOCHS 1000000
+#define EPOCHS 274000
 
 
 
@@ -50,11 +52,11 @@ int main() {
 
     for(int i=0; i<lenght; i++){
         if(!strcmp(training_expected[i], "Iris-setosa")){
-            training[i]=0;
+            training[i]=0.0;
         } else if (!strcmp(training_expected[i], "Iris-versicolor")){
-            training[i]=1;
+            training[i]=0.5;
         } else{
-            training[i]=2;
+            training[i]=1.0;
         }
     }
 
@@ -66,11 +68,11 @@ int main() {
     printf("indecies shuffled\n");
    
     Layer layer1 ={.neuron_count=4};
-    init_layer(&layer1, 1);
+    init_layer(&layer1, 4);
     Layer layer2 ={.neuron_count=10};
     init_layer(&layer2, 4);
-    Layer layer3 ={.neuron_count=1};
-    init_layer(&layer3, 4);
+    Layer layer3 ={.neuron_count=3};
+    init_layer(&layer3, 10);
 
     Layer layers[]={layer1,layer2,layer3};
     Network network = {.layer_count=3, .layers=layers};
@@ -79,57 +81,48 @@ int main() {
 
     time_t start = time(NULL);
     for(int epoch=0; epoch< EPOCHS; epoch++){
-        double error_rate=0;
-        double inputs[4];
+        double error_rate=0, inputs[4];
+
         for(int i=0; i<lenght-20; i++){ 
+
             int index = shuffled_index[i];
-            for(int j=0; j<4; j++){
-                inputs[j] = training_inputs[j][index];
-            }
 
-            forward_layer(&network.layers[0], inputs);
-            forward_layer(&network.layers[1], network.layers[0].activation_array);
-            forward_layer(&network.layers[2], network.layers[1].activation_array);
+            for(int j=0; j<4; j++) inputs[j] = training_inputs[j][index];
 
-            backward_output_layer(&network.layers[2], network.layers[1].activation_array, &training[index], learning_rate);
-            backward_hidden_layer(&network.layers[1], &network.layers[2], network.layers[0].activation_array, learning_rate);
-            backward_hidden_layer(&network.layers[0], &network.layers[1], inputs, learning_rate);
-
-            update_weight(&network.layers[2], network.layers[1].activation_array,learning_rate);
-            update_weight(&network.layers[1], network.layers[0].activation_array,learning_rate);
-            update_weight(&network.layers[0], inputs,learning_rate);
-
+            forward_network(&network,inputs);
+            backward_network(&network, inputs, &training[index], learning_rate);
+            update_network(&network, inputs, learning_rate);
     
-            error_rate += error(network.layers[2].activation_array[0], training[index]);
+            error_rate += error(max(network.layers[2]), training[index]);
         }
+
         fprintf(error_file,"%i,%f\n",epoch,error_rate/130.0);
-        if(epoch % 10000 ==0){
-            printf("epoch: %i | error: %f\n", epoch, error_rate/130.0);
-        }
+        if(epoch % 10000 ==0) printf("epoch: %i | error: %f\n", epoch, error_rate/130.0);
+        
     }
 
     printf("training done\n");
 
     time_t end = time(NULL);
     for(int i=lenght-20; i<lenght; i++){
-        int index = shuffled_index[i];
-        double inputs[4];
-        for(int i=0; i<4; i++){
-            inputs[i] = training_inputs[i][index];
-        }
-        forward_layer(&network.layers[0], inputs);
-        forward_layer(&network.layers[1], network.layers[0].activation_array);
-        forward_layer(&network.layers[2], network.layers[1].activation_array);
+        int index = shuffled_index[i]; double inputs[4];
 
-        double error_rate = network.layers[2].activation_array[0] - training[index];
-        printf("prediction: %f | training expected: %f | error: %f\n",network.layers[2].activation_array[0],training[index], error_rate);
+        for(int i=0; i<4; i++){inputs[i] = training_inputs[i][index];}
+
+        forward_network(&network,inputs);
+
+        double *active = network.layers[2].activation_array;
+        double error_rate = error(max(network.layers[2]),training[index]);
+         
+        printf("prediction: %.2f %.2f %.2f | training expected: %.1f | error: %.3f%%\n",active[0],active[1],active[2],training[index],100*error_rate);
     }
-    printf("testing done\n");
-    printf("time taken: %jds\n", (intmax_t)(end-start));
 
-    printf("closing the program\n");
+    printf("testing done\ntime taken: %jds\nclosing the program\n",(intmax_t)(end-start));
+
+    save_model("mark1.txt", network);
     destroy_network(&network);
     fclose(error_file);
+
     return 0;
 }
 

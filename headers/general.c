@@ -2,6 +2,7 @@
 #include "activation.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 double error(double calculated, double expected){
     return (expected - calculated)*(expected - calculated);
@@ -56,21 +57,6 @@ void update_weight(Layer *layer,double inputs[], double learning_rate){
     }
 }
 
-/*void train(Network *network, double training_inputs[], double training_expected[][INPUT_SIZE], double learning_rate){
-    forward_layer(&network->layers[0], training_inputs[]);
-    for(int layer=0; layer<network->layer_count; layer++){
-        forward_layer(&network->layers[1], network->layers[layer].activation_array);
-    }
-
-    backward_output_layer(&network.layers[2], network.layers[1].activation_array, training_expected[i]              , learning_rate);
-    backward_hidden_layer(&network.layers[1], &network.layers[2]                , network.layers[0].activation_array, learning_rate);
-    backward_hidden_layer(&network.layers[0], &network.layers[1]                , training_inputs[i]                , learning_rate);
-
-    update_weight(&network.layers[2], network.layers[1].activation_array,learning_rate);
-    update_weight(&network.layers[1], network.layers[0].activation_array,learning_rate);
-    update_weight(&network.layers[0], training_inputs[i],learning_rate);
-}*/
-
 void shuffle_array(int array[], int n){
     for(int i=0; i<n; i++){
         array[i]=i;
@@ -83,3 +69,67 @@ void shuffle_array(int array[], int n){
         array[j] = temp;
     }
 }
+
+void softmax(Layer *layer, double t){
+    double sum = 0;
+    for(int i =0; i < layer->neuron_count; i++){
+        sum += exp(layer->activation_array[i]/t);
+    }
+
+    for(int i=0; i< layer->neuron_count; i++){
+        layer->activation_array[i] = exp(layer->activation_array[i]/t)/sum;
+    }
+}
+
+double max(Layer layer){
+    double maximum = layer.activation_array[0];
+    for(int i=0; i<layer.neuron_count; i++){
+        if(layer.activation_array[i] > maximum) maximum = layer.activation_array[i];
+    }
+    return maximum;
+}
+
+void save_model(char *destination, Network network){
+    FILE *model;
+    model = fopen(destination, "w");
+
+    for(int layer =0; layer < network.layer_count; layer++){
+        fprintf(model,"layer %i:\n", layer);
+        for(int neuron =0; neuron < network.layers[layer].neuron_count; neuron++){
+            fprintf(model,"neuron %i: ",neuron);
+            for(int weight=0; weight < network.layers[layer].neurons[neuron].input_count; weight++){
+                fprintf(model, "%f ", network.layers[layer].neurons[neuron].weights[weight]);
+            }
+            fprintf(model,"\n");
+        }
+        fprintf(model,"\n");
+    }
+
+    fclose(model);
+}
+
+void forward_network(Network *network, double inputs[]){
+    forward_layer(&network->layers[0], inputs);
+    for(int i=1; i<network->layer_count; i++){
+        forward_layer(&network->layers[i], network->layers[i-1].activation_array);
+    }
+}
+
+void update_network(Network *network, double inputs[], double learning_rate){
+    for(int i=network->layer_count-1; i>1; i--){
+        update_weight(&network->layers[i], network->layers[i-1].activation_array,learning_rate);
+    }
+    update_weight(&network->layers[1], inputs,learning_rate);
+}
+
+
+void backward_network(Network *network, double inputs[], double expected[], double learning_rate){
+    backward_output_layer(&network->layers[network->layer_count-1], network->layers[network->layer_count-2].activation_array, expected, learning_rate);
+    for(int i=network->layer_count-2; i>1; i--){
+        backward_hidden_layer(&network->layers[i], &network->layers[i+1], network->layers[i-1].activation_array, learning_rate);
+    }
+    backward_hidden_layer(&network->layers[1], &network->layers[2], inputs, learning_rate);
+}
+
+
+
